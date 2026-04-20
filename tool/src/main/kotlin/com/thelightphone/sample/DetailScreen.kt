@@ -55,7 +55,6 @@ class DetailViewModel : LightViewModel() {
     val state: StateFlow<State> = _state
 
     override fun onScreenShow(screen: SimpleLightScreen) {
-        println(this)
         super.onScreenShow(screen)
         _state.value = State.Loading
         viewModelScope.launch(Dispatchers.IO) {

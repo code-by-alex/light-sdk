@@ -7,14 +7,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import java.io.File
+import kotlin.text.clear
 
-abstract class SimpleLightScreen(sealedActivity: SealedLightActivity) : ViewModelStoreOwner {
+abstract class SimpleLightScreen(sealedActivity: SealedLightActivity) {
     internal val activity = sealedActivity.activity
 
-    override val viewModelStore: ViewModelStore = ViewModelStore()
-
-    protected val dataStore: DataStore<Preferences>
-        get() = activity.dataStore
+    protected val dataStore: DataStore<Preferences> = activity.dataStore
+    protected val filesDir: File = activity.filesDir
+    protected val fileShare: LightFileShare by lazy { LightFileShare(activity) }
 
     @Composable
     abstract fun Content()
@@ -24,6 +25,7 @@ abstract class SimpleLightScreen(sealedActivity: SealedLightActivity) : ViewMode
     open fun willShow() {}
     open fun willHide() {}
     open fun onAppPause() {}
+    open fun onScreenDestroy() {}
 
     internal open fun notifyWillShow() {
         willShow()
@@ -38,7 +40,7 @@ abstract class SimpleLightScreen(sealedActivity: SealedLightActivity) : ViewMode
     }
 
     internal open fun destroy() {
-        viewModelStore.clear()
+        onScreenDestroy()
     }
 
     fun navigateTo(screenFactory: (SealedLightActivity) -> SimpleLightScreen) {
@@ -53,9 +55,11 @@ abstract class SimpleLightScreen(sealedActivity: SealedLightActivity) : ViewMode
 
 abstract class LightScreen<VM : LightViewModel>(
     sealedActivity: SealedLightActivity
-) : SimpleLightScreen(sealedActivity) {
+) : SimpleLightScreen(sealedActivity), ViewModelStoreOwner {
     abstract val viewModelClass: Class<VM>
     abstract fun createViewModel(): VM
+
+    override val viewModelStore: ViewModelStore = ViewModelStore()
 
     @Suppress("UNCHECKED_CAST")
     val viewModel: VM by lazy {
@@ -67,17 +71,22 @@ abstract class LightScreen<VM : LightViewModel>(
         ViewModelProvider(this, factory)[viewModelClass]
     }
 
-    internal override fun notifyWillShow() {
+    override fun destroy() {
+        super.destroy()
+        viewModelStore.clear()
+    }
+
+    override fun notifyWillShow() {
         super.notifyWillShow()
         viewModel.onScreenShow(this)
     }
 
-    internal override fun notifyWillHide() {
+    override fun notifyWillHide() {
         super.notifyWillHide()
         viewModel.onScreenHide(this)
     }
 
-    internal override fun notifyAppPause() {
+    override fun notifyAppPause() {
         super.notifyAppPause()
         viewModel.onAppPause()
     }
